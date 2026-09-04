@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 import sys
+from pathlib import Path
 from .models import FrontierPayload
 from .agents import LACEReadmissionCoordinator
 
@@ -69,7 +70,16 @@ def main(argv=None):
         return 0
 
     if args.command == "batch":
-        with open(args.input, mode="r", encoding="utf-8-sig") as f:
+        # Validate input path to prevent directory traversal
+        input_path = Path(args.input).resolve()
+        cwd = Path.cwd().resolve()
+        if not str(input_path).startswith(str(cwd)):
+            print(f"Error: Input path must be within the working directory: {args.input}", file=sys.stderr)
+            return 1
+        if not input_path.is_file():
+            print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+            return 1
+        with open(input_path, mode="r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
