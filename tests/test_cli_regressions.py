@@ -40,3 +40,21 @@ def test_batch_cannot_overwrite_input_or_escape(tmp_path, monkeypatch):
         f.write("task_id,target_identifier,primary_metric,secondary_metric,is_critical_flag,status_descriptor\n")
     assert primary_cli(["batch", "-i", "input.csv", "-o", "input.csv"]) == 1
     assert secondary_cli(["batch", "-i", "input.csv", "-o", "../bad.csv"]) == 1
+
+
+def test_invalid_csv_boolean_and_nonfinite_values_are_rejected(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "invalid.csv"
+    path.write_text(
+        "task_id,target_identifier,primary_metric,secondary_metric,is_critical_flag,status_descriptor\n"
+        "T1,K1,10,4,maybe,NOMINAL\n"
+    )
+    assert primary_cli(["batch", "-i", "invalid.csv"]) == 1
+    assert secondary_cli(["batch", "-i", "invalid.csv"]) == 1
+
+    path.write_text(
+        "task_id,target_identifier,primary_metric,secondary_metric,is_critical_flag,status_descriptor\n"
+        "T1,K1,nan,4,False,NOMINAL\n"
+    )
+    assert primary_cli(["batch", "-i", "invalid.csv"]) == 1
+    assert secondary_cli(["batch", "-i", "invalid.csv"]) == 1
