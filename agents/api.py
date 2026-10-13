@@ -13,7 +13,7 @@ supervisor = SystemSupervisor(model_provider="mock")
 
 app = FastAPI(
     title="Discharge Summary Cms Readmission API",
-    description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
+    description="Research LACE index and experimental threshold checks; not CMS HWR or clinical decision support",
     version="3.0.0-ENTERPRISE",
 )
 
@@ -40,7 +40,7 @@ def api_lace(req: LACERequest):
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "discharge-summary-cms-readmission", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
+    return {"status": "HEALTHY", "service": "discharge-summary-cms-readmission", "domain": "Clinical & Biomedical AI", "standard": "Unvalidated demonstration rules", "version": "3.0.0-ENTERPRISE"}
 
 
 @app.get("/metrics")
