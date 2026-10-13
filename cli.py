@@ -4,6 +4,7 @@ Command Line Interface for Discharge Summary Cms Readmission.
 import argparse
 import csv
 import json
+import math
 import sys
 from lace_readmission.lace_score import calculate_lace
 from pathlib import Path
@@ -12,6 +13,14 @@ from agents.supervisor import SystemSupervisor
 from agents.base import AuditLogger
 
 supervisor = SystemSupervisor(model_provider="mock")
+
+def _parse_csv_boolean(value):
+    normalized = str(value).strip().lower()
+    if normalized in ("true", "1", "yes", "y"):
+        return True
+    if normalized in ("false", "0", "no", "n", ""):
+        return False
+    raise ValueError("Invalid boolean flag")
 
 
 def main(argv=None):
@@ -120,14 +129,23 @@ def main(argv=None):
 
         out_fields = fieldnames + ["overall_urgency", "integrity_status", "total_alerts", "audit_hash"]
         out_rows = []
-        for r in rows:
+        for row_num, r in enumerate(rows, start=2):
+            try:
+                critical_flag = _parse_csv_boolean(r.get("is_critical_flag", "false"))
+                primary = float(r.get("primary_metric", 15.0))
+                secondary = float(r.get("secondary_metric", 5.0))
+                if not math.isfinite(primary) or not math.isfinite(secondary):
+                    raise ValueError("Nonfinite metric")
+            except (ValueError, TypeError):
+                print(f"Error: invalid numeric or boolean value at CSV line {row_num}", file=sys.stderr)
+                return 1
             payload = SystemTaskPayload(
                 task_id=r.get("task_id", "TASK-01"),
                 target_identifier=r.get("target_identifier", "TARGET-01"),
-                primary_metric=float(r.get("primary_metric", 15.0)),
-                secondary_metric=float(r.get("secondary_metric", 5.0)),
+                primary_metric=primary,
+                secondary_metric=secondary,
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=str(r.get("is_critical_flag", "false")).strip().lower() in ("true", "1", "yes"),
+                is_critical_flag=critical_flag,
             )
             dossier = supervisor.process_task(payload)
             row_dict = dict(r)
