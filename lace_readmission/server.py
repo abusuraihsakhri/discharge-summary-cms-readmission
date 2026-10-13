@@ -4,6 +4,7 @@ FastAPI REST API Server for LACE-Readmission: 30-Day Hospital Readmission Risk &
 from typing import Dict, Any
 from .models import FrontierPayload
 from .agents import LACEReadmissionCoordinator
+from .lace_score import calculate_lace
 
 coordinator = LACEReadmissionCoordinator()
 
@@ -11,7 +12,7 @@ coordinator = LACEReadmissionCoordinator()
 def create_app():
     try:
         from fastapi import FastAPI
-        from pydantic import BaseModel
+        from pydantic import BaseModel, Field
 
         app = FastAPI(
             title="LACE-Readmission: 30-Day Hospital Readmission Risk & Medication Agent",
@@ -30,6 +31,19 @@ def create_app():
 
         class ChatRequest(BaseModel):
             query: str
+
+        class LACERequest(BaseModel):
+            length_of_stay_days: int = Field(ge=0, strict=True)
+            acute_admission: bool = Field(strict=True)
+            charlson_score: int = Field(ge=0, strict=True)
+            ed_visits_6_months: int = Field(ge=0, strict=True)
+
+        @app.post("/api/lace")
+        def api_lace(req: LACERequest):
+            return calculate_lace(
+                req.length_of_stay_days, req.acute_admission,
+                req.charlson_score, req.ed_visits_6_months
+            ).to_dict()
 
         @app.get("/health")
         def health():
