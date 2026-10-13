@@ -28,6 +28,12 @@ test = [
     "httpx>=0.26,<1",
 ]
 
+[tool.setuptools]
+py-modules = ["cli", "enrichment", "simulator", "lace_readmission_app"]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "lace_readmission*"]
+
 [project.scripts]
 discharge-summary-cms-readmission = "lace_readmission.cli:main"
 
