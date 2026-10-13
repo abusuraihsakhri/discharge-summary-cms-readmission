@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 import sys
+from lace_readmission.lace_score import calculate_lace
 from pathlib import Path
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
@@ -26,6 +27,13 @@ def main(argv=None):
     p_audit.add_argument("--critical", action="store_true")
     p_audit.add_argument("--status", default="DISCORDANT")
 
+    # Original LACE index (independent of experimental generic audit)
+    p_lace = subparsers.add_parser("lace", help="Calculate original LACE index points (0-19)")
+    p_lace.add_argument("--length-of-stay", required=True, type=int)
+    p_lace.add_argument("--acute", action="store_true", help="Acute/emergent admission")
+    p_lace.add_argument("--charlson", required=True, type=int)
+    p_lace.add_argument("--ed-visits", required=True, type=int, help="ED visits in previous 6 months")
+
     # Chat
     p_chat = subparsers.add_parser("chat", help="System configuration query")
     p_chat.add_argument("query", nargs="+")
@@ -44,6 +52,17 @@ def main(argv=None):
     p_serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
+
+    if args.command == "lace":
+        try:
+            score = calculate_lace(
+                args.length_of_stay, args.acute, args.charlson, args.ed_visits
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(score.to_dict(), indent=2))
+        return 0
 
     if args.command == "audit":
         payload = SystemTaskPayload(
