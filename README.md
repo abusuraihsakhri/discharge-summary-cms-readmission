@@ -1,194 +1,96 @@
 # Discharge Summary CMS Readmission
 
-> **Domain:** Clinical Decision Support & Biomedical Computing
-> **Standard:** CMS Hospital-Wide All-Cause Readmission (HWR)
+A research-oriented LACE index calculator alongside two legacy, experimental audit pipelines. The offline browser calculator implements the published **LACE point rubric (0–19)**.
 
-<div align="center">
+**Not a clinical decision support system.** LACE does not implement the CMS Hospital-Wide All-Cause Readmission (HWR) measure. Neither the browser tool nor the legacy threshold-based engines estimate an individualized readmission probability, interpret discharge summaries, or perform medication reconciliation. The software is not clinically validated and must not direct patient care.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Browser calculator
 
-</div>
+Open [web/index.html](web/index.html) in a modern browser. Enter:
 
----
+- Inpatient length of stay, in whole days (0 denotes less than one day)
+- Whether the admission was acute/emergent
+- Charlson comorbidity index score, calculated using the derivation study definition
+- Number of emergency department visits in the preceding six months
 
-## 📖 What It Does
+The output reports four point components and their sum. All calculations run locally in JavaScript; the page loads no external libraries or APIs and sends no input data to a server. **Do not enter patient identifiers or protected health information.**
 
-Discharge Summary CMS Readmission is a clinical decision support system that evaluates patient discharge data against CMS Hospital-Wide All-Cause Readmission (HWR) specifications. It provides multi-agent evaluation with HMAC-SHA256 tamper-evident audit trails and zero-PHI outbound guarding.
+A [GitHub Pages publishing workflow](.github/workflows/pages.yml) is included. Availability of a hosted site depends on the repository's Pages configuration and successful workflow deployment; the hosted URL should not be used until verified.
 
-The system contains two integrated subsystems:
-- **`agents/`** - Enterprise supervisor with PHI guard, audit trail, and specialized workers
-- **`lace_readmission/`** - LACE index (Length of stay, Acuity, Comorbidities, ED visits) calculator with medication reconciliation gap detection
+### Point calculation
 
----
+| Component | Input | Points |
+|---|---|---|
+| Length of stay | 0, 1, 2, 3, 4–6, 7–13, ≥14 days | 0, 1, 2, 3, 4, 5, 7 |
+| Acuity | Acute/emergent admission | 3, otherwise 0 |
+| Comorbidity | Charlson score 0, 1, 2, 3, ≥4 | 0, 1, 2, 3, 5 |
+| ED visits | 0, 1, 2, 3, ≥4 over previous six months | 0, 1, 2, 3, 4 |
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+**Source:** van Walraven C, et al. *Derivation and validation of an index to predict early death or unplanned readmission after discharge from hospital to the community.* CMAJ. 2010. [Original paper and Table 3](https://pmc.ncbi.nlm.nih.gov/articles/PMC2845681/).
 
-- **Deterministic Calculation Engine**: Strict compliance with CMS HWR formulations and thresholds.
-- **Risk & Urgency Classification**: Multi-tier categorization (ROUTINE, ELEVATED_RISK, CRITICAL_STAT_PANIC).
-- **Validation & Guardrails**: Rigorous input bounds checking and anomaly detection.
-- **Zero-PHI Outbound Interceptor**: Active regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-- **HMAC-SHA256 Audit Trail**: Chained, cryptographically signed logs for every evaluation.
-- **FastAPI REST API**: Exposes OpenAPI endpoints and operational Prometheus metrics.
+The original endpoint included death **or** unplanned readmission within 30 days. The LACE score alone is not a CMS quality measure and does not calculate an absolute risk without separate, validated calibration. Refer to the [CMS outcome-measure methodology](https://www.cms.gov/medicare/quality/initiatives/hospital-quality-initiative/measure-methodology) for HWR specifications.
 
----
+## Python and CLI
 
-## 💻 Installation
+Python 3.9+ is required. From the repository root:
 
 ```bash
-pip install -e ".[test]"
+python -m pip install -e ".[test]"
+python -m pytest -q
+node --check web/app.js
+node --test tests/lace-browser.test.cjs
 ```
 
-Or with dependencies only:
+Node.js is used only for the optional browser-logic tests; it is not needed to run the browser app or Python services.
+
+Calculate LACE points from the CLI:
+
 ```bash
-pip install -e .
+python cli.py lace --length-of-stay 14 --acute --charlson 4 --ed-visits 4
+# outputs the four components and a total of 19
 ```
 
----
+The same command is available through `python lace_readmission_app.py lace ...` and the installed `discharge-summary-cms-readmission` executable.
 
-## 💻 CLI Quickstart & Usage
+Programmatic Python:
 
-### 1. Run Audit (Single Task Evaluation)
-```bash
-# Top-level CLI (agents subsystem)
-python cli.py audit --task-id TASK-001 --target TARGET-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
-
-# LACE Readmission CLI
-python lace_readmission_app.py audit --task-id TASK-001 --target TARGET-01 --primary 29.4 --secondary 15.1 --critical --status DISCORDANT
+```python
+from lace_readmission.lace_score import calculate_lace
+breakdown = calculate_lace(14, True, 4, 4)
+print(breakdown.to_dict())
 ```
 
-### 2. Interactive Chat Query
-```bash
-python cli.py chat "What is the system status?"
-python lace_readmission_app.py chat "What standard is applied?"
-```
+## HTTP APIs and legacy demonstrations
 
-### 3. Batch Process CSV
-```bash
-python cli.py batch -i sample.csv -o results.csv
-python lace_readmission_app.py batch -i sample.csv -o results.csv
-```
-
-### 4. Verify Audit Trail Integrity
-```bash
-python cli.py verify-audit
-```
-
-### 5. Launch FastAPI Server
 ```bash
 python cli.py serve --host 127.0.0.1 --port 8000
-python lace_readmission_app.py serve --host 127.0.0.1 --port 8000
 ```
 
-### Parameter Reference
-- `--task-id`: Unique task / case identifier
-- `--target`: Entity or target identifier
-- `--primary`: Primary domain measurement or score (float)
-- `--secondary`: Secondary kinetic or confidence score (float)
-- `--critical`: Emergency escalation flag
-- `--status`: Status code or phenotype descriptor
+- `POST /api/lace`: strict, nonnegative integer inputs `length_of_stay_days`, `charlson_score`, `ed_visits_6_months`; boolean `acute_admission`. Returns the original LACE point components and total.
+- `GET /health`: process health check.
+- `POST /api/audit`, `POST /api/chat`, `GET /api/audit/logs`, `GET /metrics`: legacy experimental threshold/audit endpoints, **not** clinical risk-scoring or CMS compliance.
+- `python cli.py audit`, `batch`, `chat`, `verify-audit`: preserved experimental CLI operations.
+- `python lace_readmission_app.py serve`: an alternative legacy service that also exposes `POST /api/lace`.
 
-### Input Data Schema
+The `agents/` and `lace_readmission/` audit subsystems evaluate generic demonstration thresholds (including primary metric >25); these numbers have no established interpretation as LACE scores or CMS HWR specifications. `enrichment.py` contains illustrative threshold modules rather than implemented clinical feature pipelines. No real external language-model provider integration is supplied.
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `task_id` | Parameter / observation metric | Required |
-| `target_identifier` | Parameter / observation metric | Required |
-| `primary_metric` | Parameter / observation metric | Required |
-| `secondary_metric` | Parameter / observation metric | Required |
-| `is_critical_flag` | Emergency escalation flag | Required |
-| `status_descriptor` | Status code or phenotype | Required |
+## Security and deployment
 
----
+The HTML app has no backend dependency and should be used with synthetic, aggregate data. The Python APIs have **no authentication or production PHI protections**; do not expose them publicly or send clinical records to them. The identifier filter detects a limited set of patterns and **does not guarantee HIPAA de-identification**.
 
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Path Traversal Protection:** Batch commands validate input paths remain within the working directory.
-* **Secure Key Handling:** Audit secret key sourced from `AUDIT_SECRET_KEY` environment variable with development fallback warning.
-
----
-
-## 🧪 Testing & Verification
-
-Run the full automated test suite:
+Audit entries are HMAC-SHA256 chained and verified within one process. The log is in-memory, and an unset `AUDIT_SECRET_KEY` uses a random **ephemeral** development key; this is not a durable compliance audit store. To run Docker Compose, set a private `AUDIT_SECRET_KEY` environment variable (see [.env.example](.env.example)). Never commit the real key. Existing keys that were once embedded in repository configuration must be rotated if used.
 
 ```bash
-pytest -v
+export AUDIT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+docker compose up --build
 ```
 
-Run specific test modules:
+The Docker example binds port 8000; deploy only within a secured, access-controlled environment.
 
-```bash
-pytest tests/test_discharge_summary_cms_readmission.py -v
-pytest tests/test_lace_readmission.py -v
-pytest tests/test_enrichment.py -v
-```
+## Technology and compatibility
 
-Execute high-throughput batch simulation benchmarks:
+Python, Pydantic, FastAPI, pytest; dependency-free HTML, CSS, and JavaScript. Browser calculator supports current Chromium, Firefox and Safari engines with JavaScript enabled. Python packaging and tests run in GitHub Actions for Python 3.10–3.12. The Pages workflow serves only the `web/` static assets.
 
-```bash
-python simulator.py 1000
-```
+## License
 
----
-
-## 🐳 Container Deployment
-
-```bash
-docker build -t discharge-summary-cms-readmission .
-docker run -p 8000:8000 discharge-summary-cms-readmission
-```
-
-With docker-compose:
-
-```bash
-docker-compose up
-```
-
----
-
-## 📁 Project Structure
-
-```
-discharge-summary-cms-readmission/
-├── agents/                    # Enterprise agent subsystem
-│   ├── api.py                 # FastAPI REST server
-│   ├── base.py                # PHI guard, HMAC audit trail, security
-│   ├── llm_factory.py         # LLM provider abstraction
-│   ├── models.py              # Pydantic data models
-│   ├── supervisor.py          # Multi-agent orchestrator
-│   ├── workers.py             # Specialized evaluation workers
-│   ├── learning.py            # Bayesian calibration engine
-│   ├── metrics.py             # Prometheus metrics exporter
-│   └── streamer.py            # WebSocket telemetry broadcaster
-├── lace_readmission/          # LACE Readmission subsystem
-│   ├── agents.py              # LACE coordinator and sub-agents
-│   ├── engine.py              # Domain calculation engine
-│   ├── models.py              # Data models and status enums
-│   ├── cli.py                 # CLI entry point
-│   └── server.py              # FastAPI server factory
-├── tests/                     # Test suite
-├── web/                       # Static web interface
-├── cli.py                     # Top-level CLI entry point
-├── lace_readmission_app.py    # LACE CLI entry point
-├── enrichment.py              # Feature enrichment engines
-├── simulator.py               # Stress testing simulator
-├── sample.csv                 # Sample batch input
-├── sample_payload.json        # Sample API payload
-├── benchmark_dataset.json     # Golden benchmark test cases
-├── Dockerfile                 # Container build
-├── docker-compose.yml         # Multi-container orchestration
-└── pyproject.toml             # Project metadata and dependencies
-```
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+[MIT](LICENSE).
