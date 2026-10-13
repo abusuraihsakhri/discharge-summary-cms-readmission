@@ -18,8 +18,8 @@ class FrontierDomainEngine:
         if value > cls.PRIMARY_BOUND:
             return {
                 "summary": "Primary Domain Boundary Deviation",
-                "details": f"Parameter value ({value:.3f}) exceeds operational threshold ({cls.PRIMARY_BOUND:.1f}) under CMS Hospital-Wide All-Cause Readmission (HWR).",
-                "remediation": "Engage parameter recalibration and algorithmic verification routine.",
+                "details": f"Parameter value ({value:.3f}) exceeds operational threshold ({cls.PRIMARY_BOUND:.1f}) under a demonstration-only threshold, not CMS HWR.",
+                "remediation": "Review demonstration threshold inputs; no clinical interpretation is provided.",
             }
         return None
 
@@ -29,7 +29,7 @@ class FrontierDomainEngine:
             return {
                 "summary": "Critical Domain Condition Triggered",
                 "details": f"Secondary index ({value:.3f}) with CriticalFlag={is_critical} demands prioritized resolution.",
-                "remediation": "Initiate automated fail-safe state machine and telemetry alert dispatch.",
+                "remediation": "Review experimental input; no automated clinical action is taken.",
             }
         return None
 
@@ -40,6 +40,6 @@ class FrontierDomainEngine:
             return {
                 "summary": "Specification / Protocol Anomaly Identified",
                 "details": f"Telemetry status flag '{descriptor}' violates CMS Hospital-Wide All-Cause Readmission (HWR) conformance matrix.",
-                "remediation": "Execute automated rollback or secondary consensus verification.",
+                "remediation": "Review experimental input status; no clinical protocol conformance is assessed.",
             }
         return None
