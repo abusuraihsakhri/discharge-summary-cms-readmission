@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "discharge-summary-cms-readmission"
 version = "2.0.0"
-description = "LACE-Readmission: 30-Day Hospital Readmission Risk & Medication Engine"
+description = "LACE index calculator and experimental discharge audit utilities"
 readme = "README.md"
 authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
 license = { text = "MIT" }
@@ -13,8 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Security/Cryptography",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering",
 ]
 requires-python = ">=3.9"
 dependencies = [
@@ -26,7 +25,14 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest>=7.0",
+    "httpx>=0.26,<1",
 ]
+
+[tool.setuptools]
+py-modules = ["cli", "enrichment", "simulator", "lace_readmission_app"]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "lace_readmission*"]
 
 [project.scripts]
 discharge-summary-cms-readmission = "lace_readmission.cli:main"

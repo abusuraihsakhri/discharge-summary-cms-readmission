@@ -4,12 +4,22 @@ Command-Line Interface for LACE-Readmission: 30-Day Hospital Readmission Risk & 
 import argparse
 import csv
 import json
+import math
 import sys
+from .lace_score import calculate_lace
 from pathlib import Path
 from .models import FrontierPayload
 from .agents import LACEReadmissionCoordinator
 
 coordinator = LACEReadmissionCoordinator()
+
+def _parse_csv_boolean(value):
+    normalized = str(value).strip().lower()
+    if normalized in ("true", "1", "yes", "y"):
+        return True
+    if normalized in ("false", "0", "no", "n", ""):
+        return False
+    raise ValueError("Invalid boolean flag")
 
 
 def main(argv=None):
@@ -24,6 +34,13 @@ def main(argv=None):
     p_audit.add_argument("--secondary", type=float, default=15.1)
     p_audit.add_argument("--critical", action="store_true")
     p_audit.add_argument("--status", default="DISCORDANT")
+
+    # Original LACE index (independent of experimental generic audit)
+    p_lace = subparsers.add_parser("lace", help="Calculate original LACE index points (0-19)")
+    p_lace.add_argument("--length-of-stay", required=True, type=int)
+    p_lace.add_argument("--acute", action="store_true", help="Acute/emergent admission")
+    p_lace.add_argument("--charlson", required=True, type=int)
+    p_lace.add_argument("--ed-visits", required=True, type=int, help="ED visits in previous 6 months")
 
     # Chat
     p_chat = subparsers.add_parser("chat", help="System configuration query")
@@ -40,6 +57,17 @@ def main(argv=None):
     p_serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
+
+    if args.command == "lace":
+        try:
+            score = calculate_lace(
+                args.length_of_stay, args.acute, args.charlson, args.ed_visits
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(score.to_dict(), indent=2))
+        return 0
 
     if args.command == "audit":
         payload = FrontierPayload(
@@ -73,11 +101,15 @@ def main(argv=None):
         # Validate input path to prevent directory traversal
         input_path = Path(args.input).resolve()
         cwd = Path.cwd().resolve()
-        if not str(input_path).startswith(str(cwd)):
+        if not input_path.is_relative_to(cwd):
             print(f"Error: Input path must be within the working directory: {args.input}", file=sys.stderr)
             return 1
         if not input_path.is_file():
             print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+            return 1
+        output_path = Path(args.output).resolve()
+        if not output_path.is_relative_to(cwd) or output_path == input_path:
+            print("Error: Output must be a separate file within the working directory", file=sys.stderr)
             return 1
         with open(input_path, mode="r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -86,14 +118,23 @@ def main(argv=None):
 
         out_fields = fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]
         out_rows = []
-        for r in rows:
+        for row_num, r in enumerate(rows, start=2):
+            try:
+                critical_flag = _parse_csv_boolean(r.get("is_critical_flag", "false"))
+                primary = float(r.get("primary_metric", 15.0))
+                secondary = float(r.get("secondary_metric", 5.0))
+                if not math.isfinite(primary) or not math.isfinite(secondary):
+                    raise ValueError("Nonfinite metric")
+            except (ValueError, TypeError):
+                print(f"Error: invalid numeric or boolean value at CSV line {row_num}", file=sys.stderr)
+                return 1
             payload = FrontierPayload(
                 task_id=r.get("task_id", "TASK-01"),
                 target_identifier=r.get("target_identifier", "TARGET-01"),
-                primary_metric=float(r.get("primary_metric", 15.0)),
-                secondary_metric=float(r.get("secondary_metric", 5.0)),
+                primary_metric=primary,
+                secondary_metric=secondary,
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=critical_flag,
             )
             dossier = coordinator.process(payload)
             row_dict = dict(r)
@@ -103,7 +144,7 @@ def main(argv=None):
             row_dict["consensus_summary"] = dossier["consensus_summary"]
             out_rows.append(row_dict)
 
-        with open(args.output, mode="w", encoding="utf-8", newline="") as f:
+        with open(output_path, mode="w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=out_fields)
             writer.writeheader()
             writer.writerows(out_rows)

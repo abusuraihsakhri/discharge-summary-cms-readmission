@@ -105,6 +105,6 @@ class LACEReadmissionCoordinator:
         if "status" in q or "ledger" in q:
             return f"LACE-Readmission: 30-Day Hospital Readmission Risk & Medication Agent currently managing {len(self.execution_ledger)} execution tasks in air-gapped memory."
         elif "standard" in q or "spec" in q:
-            return "Active runtime operating strictly according to CMS Hospital-Wide All-Cause Readmission (HWR) specifications."
+            return "This experimental threshold evaluator does not implement CMS Hospital-Wide All-Cause Readmission (HWR) specifications. Use /api/lace for LACE point scoring."
         else:
-            return f"LACE-Readmission: 30-Day Hospital Readmission Risk & Medication Agent executive coordinator online. Zero-telemetry on-premises surveillance active."
+            return f"LACE-Readmission: 30-Day Hospital Readmission Risk & Medication Agent executive coordinator online. No clinical surveillance or model validation is provided."

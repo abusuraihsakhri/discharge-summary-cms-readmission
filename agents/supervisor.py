@@ -3,6 +3,7 @@ Supervisor Orchestrator & Operations Intelligence for Discharge Summary Cms Read
 Domain: Clinical & Biomedical AI
 """
 import uuid
+import json
 from typing import Dict, Any, List, Optional
 from .base import AuditLogger, ActionExecutor, PHIGuard
 from .models import SystemTaskPayload, AgentAlert, ConsensusDossier, UrgencyLevel, SystemIntegrityStatus
@@ -25,6 +26,8 @@ class SystemSupervisor:
         PHIGuard.assert_no_phi(payload.task_id)
         PHIGuard.assert_no_phi(payload.target_identifier)
         PHIGuard.assert_no_phi(payload.status_descriptor)
+        # Inspect metadata recursively; guarding only top-level identifiers misses nested PHI.
+        PHIGuard.assert_no_phi(json.dumps(payload.attributes, ensure_ascii=False))
 
         # Multi-worker evaluations
         all_alerts: List[AgentAlert] = []
@@ -75,5 +78,5 @@ class SystemSupervisor:
 
     def query_supervisory_chat(self, query: str) -> str:
         PHIGuard.assert_no_phi(query)
-        prompt = f"Supervisor inquiry for Discharge Summary Cms Readmission under CAP / CLSI / ISO Standards: {query}"
+        prompt = f"Supervisor inquiry for Discharge Summary Cms Readmission for demonstration-only, unvalidated metrics: {query}"
         return self.llm.invoke(prompt)
