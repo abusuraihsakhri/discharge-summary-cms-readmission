@@ -1,5 +1,7 @@
 # Discharge Summary CMS Readmission
 
+### [Open the Live Application →](https://abusuraihsakhri.github.io/discharge-summary-cms-readmission/)
+
 A research-oriented LACE index calculator alongside two legacy, experimental audit pipelines. The offline browser calculator implements the published **LACE point rubric (0–19)**.
 
 **Not a clinical decision support system.** LACE does not implement the CMS Hospital-Wide All-Cause Readmission (HWR) measure. Neither the browser tool nor the legacy threshold-based engines estimate an individualized readmission probability, interpret discharge summaries, or perform medication reconciliation. The software is not clinically validated and must not direct patient care.
@@ -15,7 +17,7 @@ Open [web/index.html](web/index.html) in a modern browser. Enter:
 
 The output reports four point components and their sum. All calculations run locally in JavaScript; the page loads no external libraries or APIs and sends no input data to a server. **Do not enter patient identifiers or protected health information.**
 
-A [GitHub Pages publishing workflow](.github/workflows/pages.yml) is included. Availability of a hosted site depends on the repository's Pages configuration and successful workflow deployment; the hosted URL should not be used until verified.
+The calculator is published with the [GitHub Pages deployment workflow](.github/workflows/pages.yml). It is also available offline by opening the HTML file directly.
 
 ### Point calculation
 
