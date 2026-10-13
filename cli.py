@@ -84,11 +84,15 @@ def main(argv=None):
         # Validate input path to prevent directory traversal
         input_path = Path(args.input).resolve()
         cwd = Path.cwd().resolve()
-        if not str(input_path).startswith(str(cwd)):
+        if not input_path.is_relative_to(cwd):
             print(f"Error: Input path must be within the working directory: {args.input}", file=sys.stderr)
             return 1
         if not input_path.is_file():
             print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+            return 1
+        output_path = Path(args.output).resolve()
+        if not output_path.is_relative_to(cwd) or output_path == input_path:
+            print("Error: Output must be a separate file within the working directory", file=sys.stderr)
             return 1
         with open(input_path, mode="r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -104,7 +108,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=str(r.get("is_critical_flag", "false")).strip().lower() in ("true", "1", "yes"),
             )
             dossier = supervisor.process_task(payload)
             row_dict = dict(r)
@@ -114,7 +118,7 @@ def main(argv=None):
             row_dict["audit_hash"] = dossier.audit_hash
             out_rows.append(row_dict)
 
-        with open(args.output, mode="w", encoding="utf-8", newline="") as f:
+        with open(output_path, mode="w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=out_fields)
             writer.writeheader()
             writer.writerows(out_rows)
