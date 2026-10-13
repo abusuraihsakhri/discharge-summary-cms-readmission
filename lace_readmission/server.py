@@ -16,7 +16,7 @@ def create_app():
 
         app = FastAPI(
             title="LACE-Readmission: 30-Day Hospital Readmission Risk & Medication Agent",
-            description="Computes LACE index (Length of stay, Acuity, Comorbidities, ED visits) and identifies discharge medication reconciliation gaps.",
+            description="Provides /api/lace for published point scoring; legacy /api/audit uses demonstration thresholds and does not reconcile medications.",
             version="2.0.0-FRONTIER",
         )
 
